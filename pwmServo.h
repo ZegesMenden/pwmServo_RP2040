@@ -8,16 +8,29 @@
 
 #define _deg_2_micros_slope (PWMSERVO_MAX - PWMSERVO_MIN)/(180)
 
-uint_fast16_t _clamp_val(uint_fast16_t val, uint_fast16_t min, uint_fast16_t max)
+uint _clamp_val(uint val, uint min, uint max)
 {
-    const uint_fast16_t n = val < min ? min : val;
+    const uint n = val < min ? min : val;
     return n > max ? max : n;
 };
 
-bool pwmservo_init(pin_size_t pin)
+// Similar to map but will have increased accuracy that provides a more
+// symmetrical api (call it and use result to reverse will provide the original value)
+int _improved_map(int value, int minIn, int maxIn, int minOut, int maxOut) {
+    const int rangeIn = maxIn - minIn;
+    const int rangeOut = maxOut - minOut;
+    const int deltaIn = value - minIn;
+    // fixed point math constants to improve accuracy of divide and rounding
+    constexpr int fixedHalfDecimal = 1;
+    constexpr int fixedDecimal = fixedHalfDecimal * 2;
+
+    return ((deltaIn * rangeOut * fixedDecimal) / (rangeIn) + fixedHalfDecimal) / fixedDecimal + minOut;
+}
+
+bool pwmservo_init(uint pin)
 {
     // get slice number
-    uint_fast8_t slicenum = pwm_gpio_to_slice_num(pin);
+    uint slicenum = pwm_gpio_to_slice_num(pin);
     
     // assign GPIO to pwm functionality
     gpio_set_function(pin, GPIO_FUNC_PWM);
@@ -44,12 +57,12 @@ bool pwmservo_init(pin_size_t pin)
     return true;
 };
 
-void pwmservo_write_micros(pin_size_t pin, uint_fast16_t val)
+void pwmservo_write_micros(uint pin, uint val)
 {
     pwm_set_gpio_level(pin, _clamp_val(val, PWMSERVO_MIN, PWMSERVO_MAX));
 };
 
-void pwmservo_write(pin_size_t pin, uint_fast16_t angle)
+void pwmservo_write(uint pin, uint angle)
 {
     pwm_set_gpio_level(pin, (_deg_2_micros_slope*_clamp_val(angle, 0, 180)) + PWMSERVO_MIN);
 };
